@@ -52,9 +52,12 @@ This project is currently a work-in-progress.
 
 ### Roadmap Features
 
-- Bypass Cache for personalized pages
-- Bypass Cache for A/B testing
-- Bypass Cache by Authorable Settings
+- Ability to Bypass Cache for personalized pages
+- Ability to Bypass Cache for A/B tested pages
+- Ability to Bypass Cache by Authorable Settings
+- Ability to clear cache
+- Ability to track hit/miss telemetry
+- Ability to apply cache rules by route
 
 ## Cache Managers
 
