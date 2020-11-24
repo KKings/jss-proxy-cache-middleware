@@ -26,7 +26,7 @@ class MemoryCache {
         }
     }
 
-    async write(routeParams, headers, data) {
+    async write(routeParams, contentType, headers, data) {
         if (!data || data.length === 0) {
             return;
         }
@@ -39,6 +39,7 @@ class MemoryCache {
                 ...headers,
             },
             data,
+            contentType,
             expires: new Date(new Date().getTime() + this.options.duration * 1000),
         });
 

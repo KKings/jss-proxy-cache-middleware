@@ -97,6 +97,10 @@ class ProxyCacheMiddleware {
                 ProxyCacheMiddleware.applyCachedHeaders(response, cacheData.headers);
             }
 
+            if (cacheData.contentType) {
+                response.set('Content-Type', cacheData.contentType);
+            }
+
             return response.send(cacheData.data);
         } catch (error) {
             return next(error);
@@ -128,7 +132,8 @@ class ProxyCacheMiddleware {
                     ? ProxyCacheMiddleware.getAllowedDownstreamHeaders(response,
                         this.options.allowedDownstreamHeaders)
                     : {};
-                await this.options.cache.write(routeParams, headers, body);
+                const contentType = response.get('Content-Type');
+                await this.options.cache.write(routeParams, contentType, headers, body);
             }
 
             originalWrite.call(response, body);

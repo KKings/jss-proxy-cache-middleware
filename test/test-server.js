@@ -1,7 +1,8 @@
 const express = require('express');
 const path = require('path');
-const { createCacheMiddleware } = require('./index.js');
-const { createFileCache } = require('./index.js');
+const { promises: fs } = require('fs');
+const { createCacheMiddleware } = require('../src/index.js');
+const { createFileCache } = require('../src/index.js');
 
 const server = express();
 const port = process.env.PORT || 3000;
@@ -20,11 +21,15 @@ server.get('/favicon.ico', (request, response) => response.status(204).end(null)
 
 server.use(createCacheMiddleware(cachingOptions));
 server.get('*', (request, response) => {
-    setTimeout(() => {
-        response.set('X-Test', 'Hello-World');
-        response.set('X-Test-1', 'Hello Man');
+    setTimeout(async () => {
         response.set('Content-Type', 'text/html; charset=utf-8');
-        response.end(`hello world, ${new Date()}`);
+        response.set('X-Test', 'Hello-World');
+        response.set('X-Test-1', 'Another Test');
+
+        let example = await fs.readFile(`${process.cwd()}/test/data/index.html`, 'utf8');
+        example = example.replace('#{TIME}#', `${new Date()}`);
+
+        response.end(example);
     }, 1000);
 });
 

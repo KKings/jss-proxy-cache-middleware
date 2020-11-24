@@ -4,7 +4,7 @@
   "description": "A cache middleware for express when using Headless Sitecore JSS",
   "main": "src/index.js",
   "scripts": {
-    "start:proxy": "node test-server.js"
+    "start:proxy": "node test/test-server.js"
   },
   "engines": {
     "node": ">=8.1",
