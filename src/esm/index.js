@@ -9,4 +9,4 @@ export function createCacheMiddleware(options) {
     const cacheMiddlwareInstance = new ProxyCacheMiddleware(options);
     const { middleware } = cacheMiddlwareInstance;
     return middleware.bind(cacheMiddlwareInstance);
-}
+};

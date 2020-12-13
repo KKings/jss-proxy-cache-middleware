@@ -70,6 +70,8 @@ class ProxyCacheMiddleware {
         if (!this.options.cache) {
             this.options.cache = new FileCache({});
         }
+
+        ProxyCacheMiddleware.rewriteCreateViewBag(this.options.proxyConfig);
     }
 
     async middleware(request, response, next) {
@@ -127,7 +129,7 @@ class ProxyCacheMiddleware {
         response.end = async (data) => {
             const body = data || buffer.toString();
 
-            if (response.statusCode === 200) {
+            if (response.statusCode === 200 && response.isRouteCacheable) {
                 const headers = this.options.useDownstreamHeaders
                     ? ProxyCacheMiddleware.getAllowedDownstreamHeaders(response,
                         this.options.allowedDownstreamHeaders)
@@ -168,6 +170,32 @@ class ProxyCacheMiddleware {
         const containsExcludedPath = !!this.options.bypassCacheByPath.find((path) => url.includes(path));
 
         return containsExcludedPath;
+    }
+
+    static createViewBag(request, response, proxyResponse, layoutServiceData) {
+        if (!layoutServiceData
+            || !layoutServiceData.sitecore
+            || !layoutServiceData.sitecore.route) {
+            return;
+        }
+
+        response.isRouteCacheable = layoutServiceData.sitecore.route.cacheable !== undefined
+            ? layoutServiceData.sitecore.route.cacheable
+            : true;
+    }
+
+    static rewriteCreateViewBag(proxyOptions) {
+        const originalCreateViewBag = proxyOptions.createViewBag;
+
+        if (proxyOptions.createViewBag) {
+            // eslint-disable-next-line no-param-reassign
+            proxyOptions.createViewBag = (request, response, proxyResponse, layoutServiceData) => {
+                this.createViewBag(request, response, proxyResponse, layoutServiceData);
+                originalCreateViewBag.call(request, response, proxyResponse, layoutServiceData);
+            };
+        }
+
+        return proxyOptions;
     }
 
     static applyCachedHeaders(response, cachedHeaders = []) {
