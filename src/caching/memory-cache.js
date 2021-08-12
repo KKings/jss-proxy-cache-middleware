@@ -10,7 +10,8 @@ class MemoryCache {
         this.options = { ...defaultOptions, ...options };
     }
 
-    static async get(routeParams) {
+    // eslint-disable-next-line class-methods-use-this
+    async get(routeParams) {
         const cacheKey = MemoryCache.getCacheKey(routeParams);
         const cachedData = mCache.get(cacheKey);
 
@@ -43,7 +44,7 @@ class MemoryCache {
             expires: new Date(new Date().getTime() + this.options.duration * 1000),
         });
 
-        const cacheKey = this.getCacheKey(routeParams);
+        const cacheKey = MemoryCache.getCacheKey(routeParams);
 
         mCache.put(cacheKey, cacheItem, this.options.duration * 1000);
     }
