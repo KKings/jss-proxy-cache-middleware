@@ -52,8 +52,13 @@ const defaultOptions = {
      * the requests will be sent to the downstream (Sitecore) instance
      */
     bypassCacheByPath: [
-        'layouts/system',
-        'sitecore/api/jss/dictionary',
+        '/layouts/system',
+        '/sitecore/api/jss/dictionary',
+        '/dist/',
+        '/-/media',
+        '/-/jssmedia',
+        '/assets/',
+        '/api/',
     ],
 
     /**
@@ -92,7 +97,7 @@ class ProxyCacheMiddleware {
             }
 
             if (this.options.setProxyCacheHeaders) {
-                response.set('X-JSS-Proxy-Cache', 'HIT');
+                response.set('x-proxy-cache', 'HIT');
             }
 
             if (this.options.useDownstreamHeaders) {
@@ -116,7 +121,7 @@ class ProxyCacheMiddleware {
         } = response;
 
         if (this.options.setProxyCacheHeaders) {
-            response.set('X-JSS-Proxy-Cache', 'MISS');
+            response.set('x-proxy-cache', 'MISS');
         }
 
         // eslint-disable-next-line new-cap
@@ -128,6 +133,19 @@ class ProxyCacheMiddleware {
 
         response.end = async (data) => {
             const body = data || buffer.toString();
+
+            /** 
+             * isRouteCacheable is added here:
+             * - for SSR, see the createViewBag
+             * - for Layout Service requests, see below
+             */
+            if (routeParams.isApiRequest) {
+                const asJson = ProxyCacheMiddleware.parseLayoutService(body);
+                /** 
+                 * Run same method as SSR
+                 */
+                 ProxyCacheMiddleware.createViewBag(null, response, null, asJson);
+            }
 
             if (response.statusCode === 200 && response.isRouteCacheable) {
                 const headers = this.options.useDownstreamHeaders
@@ -167,21 +185,54 @@ class ProxyCacheMiddleware {
      * @returns {boolean} is path excluded
      */
     isExcludedPath(url) {
-        const containsExcludedPath = !!this.options.bypassCacheByPath.find((path) => url.includes(path));
+        const containsExcludedPath = !!this.options.bypassCacheByPath.find((path) => url.startsWith(path));
 
         return containsExcludedPath;
+    }
+
+    static isLayoutRequestCacheable(layoutServiceData) {
+        if  (!layoutServiceData
+            || !layoutServiceData.sitecore
+            || !layoutServiceData.sitecore.context) {
+            return undefined;
+        }
+
+        return layoutServiceData.sitecore.context.cacheable !== undefined
+            ? layoutServiceData.sitecore.context.cacheable
+            : true;
+    }
+
+    static parseLayoutService(data) {
+        if (!data) {
+            return {};
+        }
+
+        return ProxyCacheMiddleware.tryParseJson(data);
+    }
+
+    static tryParseJson(data) {
+        try {
+            var json = JSON.parse(data);
+
+            if (json && typeof json === 'object' && json !== null) {
+                return json;
+            }
+        }
+        catch (e) {
+            console.error("error parsing json string '" + data + "'", e);
+        }
+
+        return {};
     }
 
     static createViewBag(request, response, proxyResponse, layoutServiceData) {
         if (!layoutServiceData
             || !layoutServiceData.sitecore
-            || !layoutServiceData.sitecore.route) {
+            || !layoutServiceData.sitecore.context) {
             return;
         }
 
-        response.isRouteCacheable = layoutServiceData.sitecore.route.cacheable !== undefined
-            ? layoutServiceData.sitecore.route.cacheable
-            : true;
+        response.isRouteCacheable = ProxyCacheMiddleware.isLayoutRequestCacheable(layoutServiceData);
     }
 
     static rewriteCreateViewBag(proxyOptions) {
