@@ -3,11 +3,11 @@ const FileCache = require('./caching/file-cache');
 
 const defaultOptions = {
     /**
-     * Enable or disable the X-JSS-Proxy-Cache response header
+     * Enable or disable the x-proxy-cache response header
      *
      * If enabled, will add a response headers for cache misses or cache hits:
-     * - X-JSS-Proxy-Cache: HIT
-     * - X-JSS-Proxy-Cache: MISS
+     * - x-proxy-cache: HIT
+     * - x-proxy-cache: MISS
      */
     setProxyCacheHeaders: true,
 
@@ -24,7 +24,15 @@ const defaultOptions = {
      *
      * useDownstreamHeaders must be set to true
      */
-    allowedDownstreamHeaders: [],
+    allowedDownstreamHeaders: [
+        'cache-control',
+        'expires',
+        'strict-transport-security',
+        'content-security-policy',
+        'x-content-type-options',
+        'x-frame-options',
+        'x-xss-protection',
+    ],
 
     /**
      * Default language of the website when a language cannot be determined.
