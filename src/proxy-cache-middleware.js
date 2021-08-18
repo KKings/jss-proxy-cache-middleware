@@ -1,3 +1,6 @@
+const zlib = require('zlib')
+const util = require('util');
+const unzip = util.promisify(zlib.unzip);
 const URL = require('url');
 const FileCache = require('./caching/file-cache');
 
@@ -135,12 +138,22 @@ class ProxyCacheMiddleware {
         // eslint-disable-next-line new-cap
         let buffer = new Buffer.alloc(0);
 
-        response.write = (data) => {
-            buffer = Buffer.concat([buffer, data]);
+        response.write = (data, encoding) => {
+            if (Buffer.isBuffer(data)) {
+                buffer = Buffer.concat([buffer, data]);
+            } else {
+                buffer = Buffer.concat([buffer, Buffer.from(data, encoding)]);
+            }
+
+            if (buffer.length > (this.options.proxyConfig.maxResponseSizeBytes)) {
+                throw new Error('Document too large');
+            }
+        
+            return true;
         };
 
         response.end = async (data) => {
-            const body = data || buffer.toString();
+            let body = data || buffer.toString('utf-8');
 
             /** 
              * isRouteCacheable is added here:
@@ -148,11 +161,14 @@ class ProxyCacheMiddleware {
              * - for Layout Service requests, see below
              */
             if (routeParams.isApiRequest) {
-                const asJson = ProxyCacheMiddleware.parseLayoutService(body);
+                const asJson = await this.processLayoutServiceResponse(response, buffer)
+                    .catch(error => console.log(error));
                 /** 
                  * Run same method as SSR
                  */
                  ProxyCacheMiddleware.createViewBag(null, response, null, asJson);
+
+                 body = JSON.stringify(asJson);
             }
 
             if (response.statusCode === 200 && response.isRouteCacheable) {
@@ -197,6 +213,36 @@ class ProxyCacheMiddleware {
 
         return containsExcludedPath;
     }
+    
+
+    async processLayoutServiceResponse(response, rawData) {
+        if (!response || !rawData) {
+            return {};
+        }
+
+        const contentEncoding = response.get('content-encoding');
+
+        const needsUnzipping = (contentEncoding && (contentEncoding.indexOf('gzip') !== -1 || contentEncoding.indexOf('deflate') !== -1));
+        const value = needsUnzipping
+            ? await this.unzip(rawData)
+            : Promise.resolve(rawData.toString('utf-8'));
+
+        if (needsUnzipping) {
+            response.removeHeader('content-encoding');
+        }
+            
+        return ProxyCacheMiddleware.tryParseJson(value);
+    }
+
+    async unzip(data) {
+        if (!data) {
+            return Promise.result('');
+        }
+
+        var value = await unzip(data);
+
+        return (value || '').toString('utf-8');
+    }
 
     static isLayoutRequestCacheable(layoutServiceData) {
         if  (!layoutServiceData
@@ -208,14 +254,6 @@ class ProxyCacheMiddleware {
         return layoutServiceData.sitecore.context.cacheable !== undefined
             ? layoutServiceData.sitecore.context.cacheable
             : true;
-    }
-
-    static parseLayoutService(data) {
-        if (!data) {
-            return {};
-        }
-
-        return ProxyCacheMiddleware.tryParseJson(data);
     }
 
     static tryParseJson(data) {
